@@ -65,15 +65,8 @@ game_ids = range(start,end)
 rounds = ['Jeopardy! Round','Double Jeopardy! Round','Final Jeopardy! Round'] # for use in database
 roundVars = ['jeopardy_round', 'double_jeopardy_round'] # for parsing html. Final Jeopardy! is treated seperately due to html formatting differences.
 
-# something very strange happens with these games. As far as I can tell, the HTML format is consistent with other games, yet BeautifulSoup does not catch all of the clues,
-# thus resulting in an error. I've only tested games 1-100. There are likely more "Bad Games."
-badGames = [30, 60]
-
 # iterate through games
 for game_id in game_ids:
-
-	if game_id in badGames:
-		continue
 		
 	# status update
 	print 'Retrieving Game ID:',game_id
@@ -81,7 +74,7 @@ for game_id in game_ids:
 	# construct url
 	url = serviceurl + str(game_id)
 	html = urllib.urlopen(url).read()
-	soup = BeautifulSoup(html, "html.parser")
+	soup = BeautifulSoup(html, "html5lib")
 
 	titleTag = soup.title.contents[0]
 	# obtain show number and air date using regural expression search
@@ -95,6 +88,8 @@ for game_id in game_ids:
 		
 		# html for current round
 		jeopardy_roundTag = soup.find('div', id=round)
+		if not jeopardy_roundTag: # some games lack data
+			continue
 		# obtain category name html tags
 		category_names = jeopardy_roundTag.find_all('td', class_="category_name")
 
@@ -146,7 +141,7 @@ for game_id in game_ids:
 					# obtain string of html correct_response tag
 					divTag = clueTag.find(onmouseover=True)
 					onmouseoverTag = divTag['onmouseover']
-					onmouseoverSoup = BeautifulSoup(onmouseoverTag,"html.parser")
+					onmouseoverSoup = BeautifulSoup(onmouseoverTag,"html5lib")
 					correctResponseFragments = onmouseoverSoup.find('em').strings
 					correct_response = ''
 					for correctResponseFragment in correctResponseFragments:
@@ -177,30 +172,36 @@ for game_id in game_ids:
 	# Final Jeopardy! Round
 	clueDict = {}
 	jeopardy_roundTag = soup.find('div', id='final_jeopardy_round')
-	category = jeopardy_roundTag.find('td', class_="category_name").contents[0]
-	clue = jeopardy_roundTag.find('td', class_='clue_text').contents[0]
-	clue = clue.replace(u"\u2019", "'")
-	clue_value = None
-	
-	# obtain string of html correct_response tag
-	divTag = jeopardy_roundTag.find(onmouseover=True)
-	onmouseoverTag = divTag['onmouseover']
-	onmouseoverSoup = BeautifulSoup(onmouseoverTag,"html.parser")
-	correctResponseFragments = onmouseoverSoup.find('em').strings
-	correct_response = ''
-	for correctResponseFragment in correctResponseFragments:
-		correct_response += correctResponseFragment
-	correct_response = correct_response.replace(u"\u2019", "'")
+	if jeopardy_roundTag:
+		category_name = jeopardy_roundTag.find('td', class_="category_name")
+		# sometimes category names are split up into multiple strings for formatting reasons. This catches that.
+		categoryStrings = category_name.strings
+		category = ''
+		for categoryString in categoryStrings:
+			category += categoryString
+		clue = jeopardy_roundTag.find('td', class_='clue_text').contents[0]
+		clue = clue.replace(u"\u2019", "'")
+		clue_value = None
+		
+		# obtain string of html correct_response tag
+		divTag = jeopardy_roundTag.find(onmouseover=True)
+		onmouseoverTag = divTag['onmouseover']
+		onmouseoverSoup = BeautifulSoup(onmouseoverTag,"html5lib")
+		correctResponseFragments = onmouseoverSoup.find('em').strings
+		correct_response = ''
+		for correctResponseFragment in correctResponseFragments:
+			correct_response += correctResponseFragment
+		correct_response = correct_response.replace(u"\u2019", "'")
 
-	clueDict['clue'] = clue
-	clueDict['clue_value'] = clue_value
-	clueDict['round'] = rounds[roundIndex]
-	clueDict['show_number'] = show_number
-	clueDict['air_date'] = air_date
-	clueDict['correct_response'] = decode_escapes(correct_response)
-	category = category.replace(u"\u2019", "'")
-	clueDict['category'] = category
-	clues.append(clueDict)
+		clueDict['clue'] = clue
+		clueDict['clue_value'] = clue_value
+		clueDict['round'] = rounds[roundIndex]
+		clueDict['show_number'] = show_number
+		clueDict['air_date'] = air_date
+		clueDict['correct_response'] = decode_escapes(correct_response)
+		category = category.replace(u"\u2019", "'")
+		clueDict['category'] = category
+		clues.append(clueDict)
 
 		
 	# insert each clue's data into database

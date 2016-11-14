@@ -54,7 +54,7 @@ while True:
 row = cur.fetchone()
 if row[0] is not None and row[0] > start: 
 	start = row[0] # don't waste time on already processed games
-	
+
 end = int(raw_input('Enter last game ID to retrieve: ')) + 1
 	
 # provide base url and range of game IDs to iterate through
@@ -66,14 +66,14 @@ rounds = ['Jeopardy! Round','Double Jeopardy! Round','Final Jeopardy! Round'] # 
 roundVars = ['jeopardy_round', 'double_jeopardy_round'] # for parsing html. Final Jeopardy! is treated seperately due to html formatting differences.
 
 # iterate through games
-for game_id in game_ids:
+for game_id in range(start,end):
 		
 	# status update
 	print 'Retrieving Game ID:',game_id
 	
 	# construct url
 	url = serviceurl + str(game_id)
-	html = urllib.urlopen(url).read()
+	html = urllib.urlopen(url).read().decode('utf-8')
 	soup = BeautifulSoup(html, "html5lib")
 
 	titleTag = soup.title.contents[0]
@@ -179,7 +179,11 @@ for game_id in game_ids:
 		category = ''
 		for categoryString in categoryStrings:
 			category += categoryString
-		clue = jeopardy_roundTag.find('td', class_='clue_text').contents[0]
+		clue_text = jeopardy_roundTag.find('td', class_='clue_text')
+		clueStrings = clue_text.strings
+		clue = ''
+		for clueString in clueStrings:
+			clue += clueString
 		clue = clue.replace(u"\u2019", "'")
 		clue_value = None
 		
